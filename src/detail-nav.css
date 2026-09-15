@@ -215,6 +215,144 @@
 .markdown-body h2,
 .markdown-body h3 { scroll-margin-top: 88px; }
 
+/* Long report typography */
+.report-article > .article-main > h1 {
+  max-width: 860px;
+  font-size: clamp(36px, 4.2vw, 48px);
+  line-height: 1.08;
+  letter-spacing: -.042em;
+}
+
+.report-article .article-summary {
+  max-width: 800px;
+  margin-top: 20px;
+  font-size: 16px;
+  line-height: 1.68;
+  color: #62625c;
+}
+
+.report-body {
+  max-width: 820px;
+  margin-top: 34px;
+  font-size: 15.5px;
+  line-height: 1.72;
+  color: #262622;
+}
+
+.report-body > p:first-child {
+  margin-top: 0;
+  margin-bottom: 28px;
+  color: #7a7a73;
+  font-size: 12.5px;
+  line-height: 1.62;
+}
+
+.report-body p,
+.report-body ul,
+.report-body ol,
+.report-body blockquote {
+  max-width: 100%;
+}
+
+.report-body p {
+  margin: 0 0 1.05em;
+}
+
+.report-body ul,
+.report-body ol {
+  margin: .8em 0 1.25em;
+  padding-left: 1.35em;
+}
+
+.report-body li {
+  padding-left: .12em;
+}
+
+.report-body li + li {
+  margin-top: .42em;
+}
+
+.report-body h2 {
+  margin: 3.2em 0 1em;
+  padding-top: 20px;
+  border-top: 1px solid #d8d8d2;
+  font-size: 24px;
+  line-height: 1.22;
+  letter-spacing: -.025em;
+  font-weight: 610;
+}
+
+.report-body h2.report-lead-heading {
+  margin-top: 2.25em;
+  padding-top: 0;
+  border-top: 0;
+  font-size: 18px;
+  letter-spacing: -.01em;
+}
+
+.report-body h2.report-lead-heading + p {
+  margin-bottom: 12px;
+  color: #393934;
+  font-size: 16px;
+  font-weight: 560;
+}
+
+.report-body h2.report-lead-heading + p + ol,
+.report-body h2.report-lead-heading + p + ul {
+  margin: 0 0 34px;
+  padding: 16px 18px 16px 38px;
+  border: 1px solid #deded8;
+  border-radius: 10px;
+  background: rgba(255,255,255,.48);
+}
+
+.report-body h3 {
+  margin: 1.85em 0 .62em;
+  font-size: 15.5px;
+  line-height: 1.35;
+  letter-spacing: -.006em;
+  font-weight: 650;
+  color: #242420;
+}
+
+.report-body strong {
+  font-weight: 650;
+}
+
+.report-body a {
+  overflow-wrap: anywhere;
+  text-underline-offset: 3px;
+  text-decoration-thickness: 1px;
+}
+
+.report-body blockquote {
+  margin: 1.35em 0;
+  padding: 2px 0 2px 16px;
+  border-left: 2px solid #b9b9b2;
+  color: #55554f;
+  font-size: 15px;
+}
+
+.report-body pre {
+  margin: 1.4em 0 1.7em;
+  padding: 16px 18px;
+  border-radius: 8px;
+  font-size: 13px;
+  line-height: 1.6;
+}
+
+.report-body table {
+  margin: 1.4em 0 1.8em;
+}
+
+.report-body hr {
+  display: none;
+}
+
+.article-footer {
+  max-width: 820px;
+}
+
 /* Once there is no room for an external left rail, switch to the mobile chapter bar. */
 @media (max-width: 1360px) {
   .chapter-sidebar { display: none; }
@@ -413,6 +551,43 @@
   .chapter-mobile {
     top: 60px;
     margin: 20px -20px 0;
+  }
+
+  .report-article > .article-main > h1 {
+    font-size: 34px;
+    line-height: 1.08;
+  }
+
+  .report-article .article-summary {
+    font-size: 15px;
+    line-height: 1.64;
+  }
+
+  .report-body {
+    font-size: 15px;
+    line-height: 1.7;
+  }
+
+  .report-body h2 {
+    margin-top: 2.7em;
+    padding-top: 16px;
+    font-size: 21px;
+  }
+
+  .report-body h2.report-lead-heading {
+    margin-top: 2em;
+    font-size: 17px;
+  }
+
+  .report-body h3 {
+    margin-top: 1.7em;
+    font-size: 15px;
+  }
+
+  .report-body h2.report-lead-heading + p + ol,
+  .report-body h2.report-lead-heading + p + ul {
+    padding: 14px 14px 14px 32px;
+    border-radius: 8px;
   }
 
   .back-to-start {
