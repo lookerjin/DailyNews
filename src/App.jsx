@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import ReactMarkdown from 'react-markdown'
 import remarkGfm from 'remark-gfm'
+import './detail-nav.css'
 
 const REPO_URL = 'https://github.com/lookerjin/DailyNews'
 const ISSUES_URL = `${REPO_URL}/issues`
