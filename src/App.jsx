@@ -159,7 +159,7 @@ function Home({ issues, initialTask = 'all' }) {
   </main>
 }
 
-function DesktopChapterNav({ headings, activeId, visible, onSelect }) {
+function DesktopChapterNav({ headings, activeId, onSelect }) {
   const navRef = useRef(null)
   useEffect(() => {
     if (!activeId || !navRef.current) return
@@ -167,7 +167,7 @@ function DesktopChapterNav({ headings, activeId, visible, onSelect }) {
   }, [activeId])
   if (!headings.length) return null
 
-  return <aside className={`chapter-sidebar ${visible ? 'visible' : ''}`} aria-label="文章目录"><div className="chapter-sidebar-inner"><span className="chapter-sidebar-title">本文目录</span><nav className="chapter-list" ref={navRef}>{headings.map((heading) => <button key={heading.id} type="button" data-chapter-id={heading.id} className={`${heading.level === 3 ? 'chapter-sub' : ''} ${activeId === heading.id ? 'active' : ''}`.trim()} onClick={() => onSelect(heading.id)}>{heading.title}</button>)}</nav></div></aside>
+  return <aside className="chapter-sidebar" aria-label="文章目录"><div className="chapter-sidebar-inner"><span className="chapter-sidebar-title">目录</span><nav className="chapter-list" ref={navRef}>{headings.map((heading) => <button key={heading.id} type="button" data-chapter-id={heading.id} className={`${heading.level === 3 ? 'chapter-sub' : ''} ${activeId === heading.id ? 'active' : ''}`.trim()} onClick={() => onSelect(heading.id)}>{heading.title}</button>)}</nav></div></aside>
 }
 
 function ChevronDownIcon() {
@@ -223,30 +223,21 @@ function BackToStartButton({ visible, onActivate }) {
       event.preventDefault()
       onActivate()
     }
-  }} aria-label="回到文章开始" title="回到开始">↑</button>
+  }} aria-label="回到页面顶部" title="回到顶部">↑</button>
 }
 
 function IssueDetail({ issue }) {
   const headings = useMemo(() => extractHeadings(issue?.body || ''), [issue?.body])
   const [activeChapter, setActiveChapter] = useState(headings[0]?.id || '')
   const [showBackToStart, setShowBackToStart] = useState(false)
-  const [showChapterNav, setShowChapterNav] = useState(false)
-  const articleStartRef = useRef(null)
-  const chapterHideTimerRef = useRef(null)
 
   useEffect(() => {
     setActiveChapter(headings[0]?.id || '')
     setShowBackToStart(false)
-    setShowChapterNav(false)
     if (!issue) return undefined
 
     const updateScrollState = () => {
       setShowBackToStart(window.scrollY > 520)
-      if (window.scrollY > 180) {
-        setShowChapterNav(true)
-        window.clearTimeout(chapterHideTimerRef.current)
-        chapterHideTimerRef.current = window.setTimeout(() => setShowChapterNav(false), 1600)
-      }
       if (!headings.length) return
       let current = headings[0].id
       for (const heading of headings) {
@@ -262,7 +253,6 @@ function IssueDetail({ issue }) {
     window.addEventListener('scroll', updateScrollState, { passive: true })
     return () => {
       cancelAnimationFrame(frame)
-      window.clearTimeout(chapterHideTimerRef.current)
       window.removeEventListener('scroll', updateScrollState)
     }
   }, [headings, issue?.number])
@@ -280,24 +270,29 @@ function IssueDetail({ issue }) {
     const target = document.getElementById(id)
     if (!target) return
     setActiveChapter(id)
-    setShowChapterNav(true)
     target.scrollIntoView({ behavior: 'smooth', block: 'start' })
+  }
+
+  const scrollToPageTop = () => {
+    window.scrollTo({ top: 0, left: 0, behavior: 'smooth' })
   }
 
   return <main className="detail-page">
     <button className="back-link" onClick={() => navigate()}>← 返回时间线</button>
-    <article className="article" ref={articleStartRef}>
-      <div className="article-main">
-        <div className="article-meta"><button className="task-link" onClick={() => navigate(`task/${encodeURIComponent(issue.task)}`)}>{issue.taskName}</button><span>{issue.date}</span><span>#{issue.number}</span></div>
-        <h1>{issue.title}</h1>
-        {issue.summary && <p className="article-summary">{issue.summary}</p>}
-        <MobileChapterMenu headings={headings} activeId={activeChapter} onSelect={scrollToChapter} />
-        <div className="markdown-body"><ReactMarkdown remarkPlugins={[remarkGfm]} components={{ a: ({ children, ...props }) => <a {...props} target="_blank" rel="noreferrer">{children}</a>, h2: renderHeading('h2'), h3: renderHeading('h3') }}>{issue.body || '_这条 Issue 没有正文。_'}</ReactMarkdown></div>
-        <footer className="article-footer"><a href={issue.url} target="_blank" rel="noreferrer">在 GitHub 查看原始 Issue ↗</a></footer>
-      </div>
-    </article>
-    <DesktopChapterNav headings={headings} activeId={activeChapter} visible={showChapterNav} onSelect={scrollToChapter} />
-    <BackToStartButton visible={showBackToStart} onActivate={() => articleStartRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' })} />
+    <div className="detail-layout">
+      <DesktopChapterNav headings={headings} activeId={activeChapter} onSelect={scrollToChapter} />
+      <article className="article">
+        <div className="article-main">
+          <div className="article-meta"><button className="task-link" onClick={() => navigate(`task/${encodeURIComponent(issue.task)}`)}>{issue.taskName}</button><span>{issue.date}</span><span>#{issue.number}</span></div>
+          <h1>{issue.title}</h1>
+          {issue.summary && <p className="article-summary">{issue.summary}</p>}
+          <MobileChapterMenu headings={headings} activeId={activeChapter} onSelect={scrollToChapter} />
+          <div className="markdown-body"><ReactMarkdown remarkPlugins={[remarkGfm]} components={{ a: ({ children, ...props }) => <a {...props} target="_blank" rel="noreferrer">{children}</a>, h2: renderHeading('h2'), h3: renderHeading('h3') }}>{issue.body || '_这条 Issue 没有正文。_'}</ReactMarkdown></div>
+          <footer className="article-footer"><a href={issue.url} target="_blank" rel="noreferrer">在 GitHub 查看原始 Issue ↗</a></footer>
+        </div>
+      </article>
+    </div>
+    <BackToStartButton visible={showBackToStart} onActivate={scrollToPageTop} />
   </main>
 }
 
