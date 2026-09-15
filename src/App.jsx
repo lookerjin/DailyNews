@@ -110,25 +110,56 @@ function DesktopChapterNav({ headings, activeId, visible, onSelect }) {
   return <aside className={`chapter-sidebar ${visible ? 'visible' : ''}`} aria-label="文章目录"><div className="chapter-sidebar-inner"><span className="chapter-sidebar-title">本文目录</span><nav className="chapter-list" ref={navRef}>{headings.map((heading) => <button key={heading.id} type="button" data-chapter-id={heading.id} className={`${heading.level === 3 ? 'chapter-sub' : ''} ${activeId === heading.id ? 'active' : ''}`.trim()} onClick={() => onSelect(heading.id)}>{heading.title}</button>)}</nav></div></aside>
 }
 
+function ChevronDownIcon() {
+  return <svg viewBox="0 0 20 20" aria-hidden="true" focusable="false"><path d="M5.75 7.75 10 12l4.25-4.25" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" /></svg>
+}
+
+function CloseIcon() {
+  return <svg viewBox="0 0 20 20" aria-hidden="true" focusable="false"><path d="m6 6 8 8M14 6l-8 8" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" /></svg>
+}
+
 function MobileChapterMenu({ headings, activeId, onSelect }) {
   const [open, setOpen] = useState(false)
-  const menuRef = useRef(null)
   const activeHeading = headings.find((heading) => heading.id === activeId) || headings[0]
 
   useEffect(() => {
     if (!open) return undefined
-    const closeOnOutside = (event) => { if (!menuRef.current?.contains(event.target)) setOpen(false) }
+    const previousOverflow = document.body.style.overflow
+    document.body.style.overflow = 'hidden'
     const closeOnEscape = (event) => { if (event.key === 'Escape') setOpen(false) }
-    document.addEventListener('pointerdown', closeOnOutside)
     document.addEventListener('keydown', closeOnEscape)
     return () => {
-      document.removeEventListener('pointerdown', closeOnOutside)
+      document.body.style.overflow = previousOverflow
       document.removeEventListener('keydown', closeOnEscape)
     }
   }, [open])
 
   if (!headings.length) return null
-  return <div className={`chapter-mobile ${open ? 'open' : ''}`} ref={menuRef}><button type="button" className="chapter-mobile-trigger" aria-expanded={open} onClick={() => setOpen((value) => !value)}><span className="chapter-mobile-kicker">章节</span><span className="chapter-mobile-current">{activeHeading?.title}</span><span className="chapter-mobile-chevron" aria-hidden="true">⌄</span></button><div className="chapter-mobile-popover" aria-hidden={!open}><div className="chapter-mobile-list">{headings.map((heading) => <button key={heading.id} type="button" className={`${heading.level === 3 ? 'chapter-sub' : ''} ${activeId === heading.id ? 'active' : ''}`.trim()} onClick={() => { setOpen(false); onSelect(heading.id) }} tabIndex={open ? 0 : -1}>{heading.title}</button>)}</div></div></div>
+
+  const chooseChapter = (id) => {
+    setOpen(false)
+    window.setTimeout(() => onSelect(id), 140)
+  }
+
+  return <div className={`chapter-mobile ${open ? 'open' : ''}`}>
+    <button type="button" className="chapter-mobile-trigger" aria-expanded={open} aria-controls="chapter-mobile-sheet" onClick={() => setOpen(true)}>
+      <span className="chapter-mobile-kicker">章节</span>
+      <span className="chapter-mobile-current">{activeHeading?.title}</span>
+      <span className="chapter-mobile-chevron"><ChevronDownIcon /></span>
+    </button>
+
+    <div className="chapter-mobile-overlay" aria-hidden={!open} onPointerDown={() => setOpen(false)} />
+    <section className="chapter-mobile-sheet" id="chapter-mobile-sheet" aria-hidden={!open} aria-label="文章章节">
+      <div className="chapter-mobile-sheet-handle" aria-hidden="true" />
+      <div className="chapter-mobile-sheet-header">
+        <div><span className="chapter-mobile-sheet-kicker">本文目录</span><strong>跳转到章节</strong></div>
+        <button type="button" className="chapter-mobile-close" onClick={() => setOpen(false)} aria-label="关闭章节目录"><CloseIcon /></button>
+      </div>
+      <div className="chapter-mobile-list">
+        {headings.map((heading) => <button key={heading.id} type="button" className={`${heading.level === 3 ? 'chapter-sub' : ''} ${activeId === heading.id ? 'active' : ''}`.trim()} onClick={() => chooseChapter(heading.id)} tabIndex={open ? 0 : -1}>{heading.title}</button>)}
+      </div>
+    </section>
+  </div>
 }
 
 function BackToStartButton({ visible, onActivate }) {
