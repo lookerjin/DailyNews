@@ -119,11 +119,8 @@
   .chapter-sidebar { display: none; }
 
   .chapter-mobile {
-    position: sticky;
-    top: 60px;
-    z-index: 24;
     display: block;
-    margin: 26px 0 0;
+    margin: 22px 0 0;
   }
 
   .chapter-mobile-trigger {
@@ -132,14 +129,20 @@
     grid-template-columns: auto minmax(0, 1fr) auto;
     align-items: center;
     gap: 10px;
-    border: 1px solid rgba(17,17,15,.1);
+    border: 1px solid rgba(17,17,15,.10);
     border-radius: 12px;
     padding: 10px 12px;
-    background: rgba(247,247,244,.95);
+    background: transparent;
     color: var(--ink);
     text-align: left;
-    box-shadow: 0 6px 20px rgba(17,17,15,.04);
-    backdrop-filter: blur(14px);
+    box-shadow: none;
+    cursor: pointer;
+    transition: background .18s ease, border-color .18s ease;
+    -webkit-tap-highlight-color: transparent;
+  }
+
+  .chapter-mobile-trigger:active {
+    background: rgba(17,17,15,.035);
   }
 
   .chapter-mobile-kicker {
@@ -154,59 +157,131 @@
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
+    color: #4e4e49;
     font-size: 12px;
   }
 
   .chapter-mobile-chevron {
-    color: var(--muted);
-    font-size: 16px;
-    transform: rotate(0deg);
-    transition: transform .2s ease;
+    width: 18px;
+    height: 18px;
+    display: grid;
+    place-items: center;
+    color: #74746e;
   }
 
-  .chapter-mobile.open .chapter-mobile-chevron { transform: rotate(180deg); }
+  .chapter-mobile-chevron svg {
+    width: 16px;
+    height: 16px;
+  }
 
-  .chapter-mobile-popover {
-    position: absolute;
-    top: calc(100% + 8px);
-    left: 0;
-    right: 0;
-    overflow: hidden;
-    border: 1px solid rgba(17,17,15,.1);
-    border-radius: 14px;
-    background: rgba(247,247,244,.98);
-    box-shadow: 0 16px 42px rgba(17,17,15,.12);
-    backdrop-filter: blur(18px);
+  .chapter-mobile-overlay {
+    position: fixed;
+    inset: 0;
+    z-index: 70;
+    background: rgba(17,17,15,.18);
     opacity: 0;
-    transform: translateY(-6px) scale(.985);
-    transform-origin: top center;
     pointer-events: none;
-    transition: opacity .18s ease, transform .18s ease;
+    transition: opacity .22s ease;
+    backdrop-filter: blur(2px);
   }
 
-  .chapter-mobile.open .chapter-mobile-popover {
+  .chapter-mobile.open .chapter-mobile-overlay {
     opacity: 1;
-    transform: translateY(0) scale(1);
     pointer-events: auto;
   }
 
+  .chapter-mobile-sheet {
+    position: fixed;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    z-index: 71;
+    max-height: min(72vh, 620px);
+    display: flex;
+    flex-direction: column;
+    border-radius: 22px 22px 0 0;
+    background: #f7f7f4;
+    box-shadow: 0 -18px 50px rgba(17,17,15,.14);
+    transform: translateY(102%);
+    transition: transform .28s cubic-bezier(.22,1,.36,1);
+    pointer-events: none;
+  }
+
+  .chapter-mobile.open .chapter-mobile-sheet {
+    transform: translateY(0);
+    pointer-events: auto;
+  }
+
+  .chapter-mobile-sheet-handle {
+    width: 38px;
+    height: 4px;
+    margin: 10px auto 2px;
+    border-radius: 999px;
+    background: #d1d1cb;
+  }
+
+  .chapter-mobile-sheet-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 18px;
+    padding: 16px 20px 12px;
+    border-bottom: 1px solid rgba(17,17,15,.08);
+  }
+
+  .chapter-mobile-sheet-header > div {
+    display: flex;
+    flex-direction: column;
+    gap: 3px;
+  }
+
+  .chapter-mobile-sheet-header strong {
+    font-size: 17px;
+    font-weight: 620;
+    letter-spacing: -.02em;
+  }
+
+  .chapter-mobile-sheet-kicker {
+    color: var(--muted);
+    font-size: 10px;
+    font-weight: 650;
+    letter-spacing: .08em;
+  }
+
+  .chapter-mobile-close {
+    width: 34px;
+    height: 34px;
+    display: grid;
+    place-items: center;
+    border: 0;
+    border-radius: 50%;
+    background: #ecece7;
+    color: #44443f;
+    cursor: pointer;
+  }
+
+  .chapter-mobile-close svg {
+    width: 16px;
+    height: 16px;
+  }
+
   .chapter-mobile-list {
-    max-height: min(52vh, 420px);
     overflow-y: auto;
-    padding: 8px;
     overscroll-behavior: contain;
+    padding: 8px 12px max(20px, env(safe-area-inset-bottom));
   }
 
   .chapter-mobile-list button {
     width: 100%;
     border: 0;
-    border-radius: 8px;
+    border-radius: 10px;
     background: transparent;
-    padding: 9px 10px;
-    color: #3f3f3a;
+    padding: 11px 12px;
+    color: #4b4b46;
     text-align: left;
-    font-size: 12px;
-    line-height: 1.4;
+    font-size: 13px;
+    line-height: 1.45;
+    transition: background .15s ease, color .15s ease;
   }
 
   .chapter-mobile-list button.active {
@@ -215,17 +290,22 @@
     font-weight: 600;
   }
 
-  .chapter-mobile-list button.chapter-sub { padding-left: 26px; color: var(--muted); }
+  .chapter-mobile-list button.chapter-sub {
+    padding-left: 28px;
+    color: var(--muted);
+    font-size: 12px;
+  }
+
   .chapter-mobile-list button.chapter-sub.active { color: var(--ink); }
 
   .markdown-body { margin-top: 30px; }
   .markdown-body h2,
-  .markdown-body h3 { scroll-margin-top: 126px; }
+  .markdown-body h3 { scroll-margin-top: 88px; }
 }
 
 @media (max-width: 720px) {
   .detail-page { max-width: none; }
-  .chapter-mobile { margin-top: 22px; }
+  .chapter-mobile { margin-top: 20px; }
   .chapter-mobile-trigger { border-radius: 10px; }
   .back-to-start { right: 16px; bottom: 16px; width: 42px; height: 42px; }
 }
