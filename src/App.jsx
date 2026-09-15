@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import ReactMarkdown from 'react-markdown'
 import remarkGfm from 'remark-gfm'
 
@@ -39,6 +39,57 @@ function formatTime(value) {
 function relativeCount(items, task) {
   const count = task === 'all' ? items.length : items.filter((item) => item.task === task).length
   return `${count} ${count === 1 ? 'entry' : 'entries'}`
+}
+
+function cleanHeadingText(value = '') {
+  return value
+    .replace(/!\[([^\]]*)\]\([^)]*\)/g, '$1')
+    .replace(/\[([^\]]+)\]\([^)]*\)/g, '$1')
+    .replace(/[*_`~]/g, '')
+    .replace(/\s+#+\s*$/, '')
+    .trim()
+}
+
+function headingSlug(value = '') {
+  return cleanHeadingText(value)
+    .normalize('NFKC')
+    .toLowerCase()
+    .replace(/[^\p{L}\p{N}\s-]/gu, '')
+    .trim()
+    .replace(/[\s_-]+/g, '-')
+}
+
+function extractHeadings(markdown = '') {
+  const headings = []
+  const seen = new Map()
+  let fence = null
+
+  markdown.split(/\r?\n/).forEach((line) => {
+    const fenceMatch = line.match(/^\s*(```|~~~)/)
+    if (fenceMatch) {
+      fence = fence === fenceMatch[1] ? null : (fence || fenceMatch[1])
+      return
+    }
+    if (fence) return
+
+    const match = line.match(/^(#{2,3})\s+(.+)$/)
+    if (!match) return
+
+    const title = cleanHeadingText(match[2])
+    if (!title) return
+
+    const base = headingSlug(title) || `section-${headings.length + 1}`
+    const count = (seen.get(base) || 0) + 1
+    seen.set(base, count)
+
+    headings.push({
+      id: `section-${base}${count > 1 ? `-${count}` : ''}`,
+      title,
+      level: match[1].length,
+    })
+  })
+
+  return headings
 }
 
 function Header() {
@@ -135,9 +186,8 @@ function Home({ issues, initialTask = 'all' }) {
   return (
     <main>
       <section className="hero">
-        <span className="eyebrow">Personal intelligence feed</span>
-        <h1>每天值得知道的事，<br />汇成一条时间线。</h1>
-        <p>GitHub Issues 是数据源，GitHub Pages 是阅读界面。简单、可搜索、可迁移，也不依赖某一个 Agent。</p>
+        <h1>DailyNews</h1>
+        <p>一个把 ChatGPT 和 Agent 定时任务的输出自动归档为 GitHub Issues，并按时间线整理、阅读和长期保存的个人信息主页。</p>
       </section>
 
       <section className="feed-shell">
@@ -168,7 +218,67 @@ function Home({ issues, initialTask = 'all' }) {
   )
 }
 
+function ChapterBar({ headings, activeId, onSelect }) {
+  const scrollerRef = useRef(null)
+
+  useEffect(() => {
+    if (!activeId || !scrollerRef.current) return
+    const activeButton = scrollerRef.current.querySelector(`[data-chapter-id="${CSS.escape(activeId)}"]`)
+    if (!activeButton) return
+
+    const left = activeButton.offsetLeft - (scrollerRef.current.clientWidth / 2) + (activeButton.offsetWidth / 2)
+    scrollerRef.current.scrollTo({ left: Math.max(0, left), behavior: 'smooth' })
+  }, [activeId])
+
+  if (!headings.length) return null
+
+  return (
+    <nav className="chapter-bar" aria-label="文章章节">
+      <span className="chapter-label">章节</span>
+      <div className="chapter-scroll" ref={scrollerRef}>
+        {headings.map((heading) => (
+          <button
+            key={heading.id}
+            type="button"
+            data-chapter-id={heading.id}
+            className={`${heading.level === 3 ? 'chapter-sub' : ''} ${activeId === heading.id ? 'active' : ''}`.trim()}
+            onClick={() => onSelect(heading.id)}
+          >
+            {heading.title}
+          </button>
+        ))}
+      </div>
+    </nav>
+  )
+}
+
 function IssueDetail({ issue }) {
+  const headings = useMemo(() => extractHeadings(issue?.body || ''), [issue?.body])
+  const [activeChapter, setActiveChapter] = useState(headings[0]?.id || '')
+
+  useEffect(() => {
+    setActiveChapter(headings[0]?.id || '')
+    if (!headings.length) return undefined
+
+    const updateActiveChapter = () => {
+      let current = headings[0].id
+      for (const heading of headings) {
+        const element = document.getElementById(heading.id)
+        if (!element) continue
+        if (element.getBoundingClientRect().top <= 150) current = heading.id
+        else break
+      }
+      setActiveChapter(current)
+    }
+
+    const frame = requestAnimationFrame(updateActiveChapter)
+    window.addEventListener('scroll', updateActiveChapter, { passive: true })
+    return () => {
+      cancelAnimationFrame(frame)
+      window.removeEventListener('scroll', updateActiveChapter)
+    }
+  }, [headings, issue?.number])
+
   if (!issue) {
     return (
       <main className="detail-page">
@@ -176,6 +286,20 @@ function IssueDetail({ issue }) {
         <section className="empty-state"><h2>没有找到这条记录。</h2></section>
       </main>
     )
+  }
+
+  let headingCursor = 0
+  const renderHeading = (Tag) => ({ children, ...props }) => {
+    const heading = headings[headingCursor]
+    headingCursor += 1
+    return <Tag {...props} id={heading?.id}>{children}</Tag>
+  }
+
+  const scrollToChapter = (id) => {
+    const target = document.getElementById(id)
+    if (!target) return
+    setActiveChapter(id)
+    target.scrollIntoView({ behavior: 'smooth', block: 'start' })
   }
 
   return (
@@ -189,11 +313,16 @@ function IssueDetail({ issue }) {
         </div>
         <h1>{issue.title}</h1>
         {issue.summary && <p className="article-summary">{issue.summary}</p>}
+
+        <ChapterBar headings={headings} activeId={activeChapter} onSelect={scrollToChapter} />
+
         <div className="markdown-body">
           <ReactMarkdown
             remarkPlugins={[remarkGfm]}
             components={{
               a: ({ children, ...props }) => <a {...props} target="_blank" rel="noreferrer">{children}</a>,
+              h2: renderHeading('h2'),
+              h3: renderHeading('h3'),
             }}
           >
             {issue.body || '_这条 Issue 没有正文。_'}
