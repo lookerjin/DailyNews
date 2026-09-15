@@ -30,6 +30,16 @@ function humanize(value = 'daily') {
     .join(' ')
 }
 
+function cleanIssueTitle(title = '') {
+  const original = String(title).trim()
+  const cleaned = original
+    .replace(/^\[[^\]]+\]\s*/, '')
+    .replace(/^\d{4}-\d{2}-\d{2}\s*(?:[｜|:：]|[-–—])\s*/, '')
+    .trim()
+
+  return cleaned || original
+}
+
 function makeSummary(body = '') {
   return body
     .replace(/```[\s\S]*?```/g, ' ')
@@ -66,7 +76,8 @@ function normalize(issue) {
 
   return {
     number: issue.number,
-    title: issue.title,
+    title: cleanIssueTitle(issue.title),
+    sourceTitle: issue.title,
     body,
     summary: String(meta.summary || makeSummary(body)),
     task,
