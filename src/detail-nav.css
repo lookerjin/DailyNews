@@ -88,87 +88,95 @@
   margin-bottom: 0;
 }
 
-/* Detail: preserve original reading width */
+/* Detail layout */
 .detail-page {
-  max-width: 930px;
+  max-width: 1180px;
 }
 
-.article-main { min-width: 0; }
+.detail-layout {
+  display: grid;
+  grid-template-columns: minmax(150px, 210px) minmax(0, 820px);
+  gap: clamp(38px, 5vw, 72px);
+  align-items: start;
+  margin-top: 52px;
+}
 
-/* Desktop floating TOC */
+.article {
+  margin-top: 0;
+}
+
+.article-main {
+  min-width: 0;
+}
+
+/* Desktop left TOC, OpenAI-style */
 .chapter-sidebar {
-  position: fixed;
-  top: 50%;
-  right: clamp(18px, 3vw, 48px);
-  z-index: 28;
-  width: min(250px, 20vw);
-  opacity: 0;
-  pointer-events: none;
-  transform: translateY(-46%) translateX(12px);
-  transition: opacity .2s ease, transform .2s ease;
-}
-
-.chapter-sidebar.visible {
-  opacity: 1;
-  pointer-events: auto;
-  transform: translateY(-50%) translateX(0);
+  position: sticky;
+  top: 88px;
+  align-self: start;
+  max-height: calc(100vh - 112px);
+  overflow: hidden;
 }
 
 .chapter-sidebar-inner {
-  max-height: min(64vh, 620px);
-  padding: 14px 0 14px 16px;
-  border-left: 1px solid rgba(17,17,15,.12);
-  background: linear-gradient(90deg, rgba(247,247,244,.76), rgba(247,247,244,.94));
-  backdrop-filter: blur(14px);
+  max-height: calc(100vh - 112px);
 }
 
 .chapter-sidebar-title {
   display: block;
-  margin: 0 10px 10px 0;
+  margin-bottom: 12px;
   color: var(--muted);
-  font-size: 10px;
-  font-weight: 650;
-  letter-spacing: .08em;
+  font-size: 11px;
+  font-weight: 520;
+  letter-spacing: .01em;
 }
 
 .chapter-list {
   display: flex;
   flex-direction: column;
   gap: 1px;
-  max-height: calc(min(64vh, 620px) - 46px);
+  max-height: calc(100vh - 148px);
   overflow-y: auto;
   overscroll-behavior: contain;
-  padding-right: 8px;
+  padding-right: 10px;
   scrollbar-width: thin;
-  scrollbar-color: #c7c7c0 transparent;
+  scrollbar-color: #d3d3cd transparent;
 }
 
 .chapter-list button {
   width: 100%;
   border: 0;
   background: transparent;
-  padding: 6px 8px;
-  color: var(--muted);
+  padding: 5px 0;
+  color: #777771;
   cursor: pointer;
   text-align: left;
   font-size: 12px;
-  line-height: 1.4;
-  transition: color .16s ease, background .16s ease;
+  line-height: 1.42;
+  transition: color .15s ease;
 }
 
 .chapter-list button:hover,
 .chapter-list button.active {
   color: var(--ink);
-  background: rgba(255,255,255,.58);
 }
 
-.chapter-list button.active { font-weight: 600; }
-.chapter-list button.chapter-sub { padding-left: 22px; font-size: 11px; }
-.chapter-list button.chapter-sub::before { content: '·'; margin-right: 6px; color: #aaa9a2; }
+.chapter-list button.active {
+  font-weight: 560;
+}
+
+.chapter-list button.chapter-sub {
+  padding-left: 14px;
+  font-size: 11px;
+}
+
+.chapter-list button.chapter-sub::before {
+  content: none;
+}
 
 .chapter-mobile { display: none; }
 
-/* Back to start */
+/* Back to top */
 .back-to-start {
   position: fixed;
   right: 24px;
@@ -206,6 +214,15 @@
 
 /* Tablet / mobile detail navigation */
 @media (max-width: 1180px) {
+  .detail-page {
+    max-width: 930px;
+  }
+
+  .detail-layout {
+    display: block;
+    margin-top: 52px;
+  }
+
   .chapter-sidebar { display: none; }
 
   .chapter-mobile {
@@ -266,7 +283,6 @@
     transform: rotate(180deg);
   }
 
-  /* Important: menu is out of normal flow so sticky height never changes. */
   .chapter-mobile-panel {
     position: absolute;
     top: 100%;
@@ -395,6 +411,10 @@
   .category-list small { display: none; }
 
   .detail-page { max-width: none; }
+
+  .detail-layout {
+    margin-top: 40px;
+  }
 
   .chapter-mobile {
     top: 60px;
