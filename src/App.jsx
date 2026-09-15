@@ -43,6 +43,34 @@ function headingSlug(value = '') {
   return cleanHeadingText(value).normalize('NFKC').toLowerCase().replace(/[^\p{L}\p{N}\s-]/gu, '').trim().replace(/[\s_-]+/g, '-')
 }
 
+function normalizeArticleMarkdown(markdown = '') {
+  const output = []
+  let fence = null
+  let removedFirstH1 = false
+
+  markdown.split(/\r?\n/).forEach((line) => {
+    const fenceMatch = line.match(/^\s*(```|~~~)/)
+    if (fenceMatch) {
+      fence = fence === fenceMatch[1] ? null : (fence || fenceMatch[1])
+      output.push(line)
+      return
+    }
+
+    if (!fence) {
+      if (!removedFirstH1 && /^#\s+/.test(line)) {
+        removedFirstH1 = true
+        return
+      }
+
+      if (/^\s*(?:-{3,}|\*{3,}|_{3,})\s*$/.test(line)) return
+    }
+
+    output.push(line)
+  })
+
+  return output.join('\n').replace(/\n{3,}/g, '\n\n').trim()
+}
+
 function extractHeadings(markdown = '') {
   const headings = []
   const seen = new Map()
@@ -167,7 +195,7 @@ function DesktopChapterNav({ headings, activeId, onSelect }) {
   }, [activeId])
   if (!headings.length) return null
 
-  return <aside className="chapter-sidebar" aria-label="文章目录"><div className="chapter-sidebar-inner"><span className="chapter-sidebar-title">目录</span><nav className="chapter-list" ref={navRef}>{headings.map((heading) => <button key={heading.id} type="button" data-chapter-id={heading.id} className={`${heading.level === 3 ? 'chapter-sub' : ''} ${activeId === heading.id ? 'active' : ''}`.trim()} onClick={() => onSelect(heading.id)}>{heading.title}</button>)}</nav></div></aside>
+  return <aside className="chapter-sidebar" aria-label="文章目录"><div className="chapter-sidebar-inner"><span className="chapter-sidebar-title">目录</span><nav className="chapter-list" ref={navRef}>{headings.map((heading) => <button key={heading.id} type="button" data-chapter-id={heading.id} className={activeId === heading.id ? 'active' : ''} onClick={() => onSelect(heading.id)}>{heading.title}</button>)}</nav></div></aside>
 }
 
 function ChevronDownIcon() {
@@ -204,7 +232,7 @@ function MobileChapterMenu({ headings, activeId, onSelect }) {
     </button>
     <div className="chapter-mobile-panel" aria-hidden={!open}>
       <div className="chapter-mobile-list">
-        {headings.map((heading) => <button key={heading.id} type="button" className={`${heading.level === 3 ? 'chapter-sub' : ''} ${activeId === heading.id ? 'active' : ''}`.trim()} onClick={() => { setOpen(false); onSelect(heading.id) }} tabIndex={open ? 0 : -1}>{heading.title}</button>)}
+        {headings.map((heading) => <button key={heading.id} type="button" className={activeId === heading.id ? 'active' : ''} onClick={() => { setOpen(false); onSelect(heading.id) }} tabIndex={open ? 0 : -1}>{heading.title}</button>)}
       </div>
     </div>
   </div>
@@ -227,20 +255,22 @@ function BackToStartButton({ visible, onActivate }) {
 }
 
 function IssueDetail({ issue }) {
-  const headings = useMemo(() => extractHeadings(issue?.body || ''), [issue?.body])
-  const [activeChapter, setActiveChapter] = useState(headings[0]?.id || '')
+  const articleBody = useMemo(() => normalizeArticleMarkdown(issue?.body || ''), [issue?.body])
+  const headings = useMemo(() => extractHeadings(articleBody), [articleBody])
+  const tocHeadings = useMemo(() => headings.filter((heading) => heading.level === 2), [headings])
+  const [activeChapter, setActiveChapter] = useState(tocHeadings[0]?.id || '')
   const [showBackToStart, setShowBackToStart] = useState(false)
 
   useEffect(() => {
-    setActiveChapter(headings[0]?.id || '')
+    setActiveChapter(tocHeadings[0]?.id || '')
     setShowBackToStart(false)
     if (!issue) return undefined
 
     const updateScrollState = () => {
       setShowBackToStart(window.scrollY > 520)
-      if (!headings.length) return
-      let current = headings[0].id
-      for (const heading of headings) {
+      if (!tocHeadings.length) return
+      let current = tocHeadings[0].id
+      for (const heading of tocHeadings) {
         const element = document.getElementById(heading.id)
         if (!element) continue
         if (element.getBoundingClientRect().top <= 112) current = heading.id
@@ -255,7 +285,7 @@ function IssueDetail({ issue }) {
       cancelAnimationFrame(frame)
       window.removeEventListener('scroll', updateScrollState)
     }
-  }, [headings, issue?.number])
+  }, [tocHeadings, issue?.number])
 
   if (!issue) return <main className="detail-page"><button className="back-link" onClick={() => navigate()}>← 返回时间线</button><section className="empty-state"><h2>没有找到这条记录。</h2></section></main>
 
@@ -263,7 +293,8 @@ function IssueDetail({ issue }) {
   const renderHeading = (Tag) => ({ children, ...props }) => {
     const heading = headings[headingCursor]
     headingCursor += 1
-    return <Tag {...props} id={heading?.id}>{children}</Tag>
+    const className = heading?.level === 2 && heading.title.includes('结论先说') ? 'report-lead-heading' : undefined
+    return <Tag {...props} id={heading?.id} className={className}>{children}</Tag>
   }
 
   const scrollToChapter = (id) => {
@@ -280,14 +311,19 @@ function IssueDetail({ issue }) {
   return <main className="detail-page">
     <button className="back-link" onClick={() => navigate()}>← 返回时间线</button>
     <div className="detail-layout">
-      <DesktopChapterNav headings={headings} activeId={activeChapter} onSelect={scrollToChapter} />
-      <article className="article">
+      <DesktopChapterNav headings={tocHeadings} activeId={activeChapter} onSelect={scrollToChapter} />
+      <article className="article report-article">
         <div className="article-main">
           <div className="article-meta"><button className="task-link" onClick={() => navigate(`task/${encodeURIComponent(issue.task)}`)}>{issue.taskName}</button><span>{issue.date}</span><span>#{issue.number}</span></div>
           <h1>{issue.title}</h1>
           {issue.summary && <p className="article-summary">{issue.summary}</p>}
-          <MobileChapterMenu headings={headings} activeId={activeChapter} onSelect={scrollToChapter} />
-          <div className="markdown-body"><ReactMarkdown remarkPlugins={[remarkGfm]} components={{ a: ({ children, ...props }) => <a {...props} target="_blank" rel="noreferrer">{children}</a>, h2: renderHeading('h2'), h3: renderHeading('h3') }}>{issue.body || '_这条 Issue 没有正文。_'}</ReactMarkdown></div>
+          <MobileChapterMenu headings={tocHeadings} activeId={activeChapter} onSelect={scrollToChapter} />
+          <div className="markdown-body report-body"><ReactMarkdown remarkPlugins={[remarkGfm]} components={{
+            a: ({ children, ...props }) => <a {...props} target="_blank" rel="noreferrer">{children}</a>,
+            h2: renderHeading('h2'),
+            h3: renderHeading('h3'),
+            hr: () => null,
+          }}>{articleBody || '_这条 Issue 没有正文。_'}</ReactMarkdown></div>
           <footer className="article-footer"><a href={issue.url} target="_blank" rel="noreferrer">在 GitHub 查看原始 Issue ↗</a></footer>
         </div>
       </article>
