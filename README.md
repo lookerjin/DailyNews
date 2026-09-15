@@ -22,7 +22,7 @@ ChatGPT / Codex / Claude / Agent
 
 一个 Issue 代表一个任务的一次运行结果。
 
-推荐的 Issue Body：
+发布到 DailyNews 的 Issue Body：
 
 ```markdown
 ---
@@ -49,15 +49,23 @@ summary: 今天有 4 个 Agent / AI Coding 项目值得关注。
 - https://github.com/example/repo
 ```
 
-Frontmatter 是可选的。缺失时 DailyNews 会使用 Issue 创建时间和 `task:*` Label 做兜底。
+当前发布规则很简单：
 
-建议同时增加一个任务 Label：
+- Issue 必须由仓库 owner 创建。
+- Body 必须包含可解析的 YAML Frontmatter。
+- `task` 必须是非空字符串。
+- `date`、`generated_at`、`summary` 等字段格式异常时会记录构建 warning，并使用安全兜底值。
+- 普通 GitHub Issue、无法解析的 Frontmatter 或缺少 `task` 的 Issue 不会进入 DailyNews 页面，也不会阻断其他正常内容的构建。
+
+Label 不是发布所必需的；如果调用方方便，也可以继续增加 `task:*` Label 作为 GitHub 侧的辅助分类：
 
 ```text
 task:github-trending
 task:ai-news
 task:weekly-reading
 ```
+
+> 当前仓库是公开仓库，因此先使用“owner + Frontmatter”作为最小发布边界。未来如果真实接入独立 Bot，再根据实际需要扩展可信作者范围。
 
 ## 给定时任务的最小提示
 
@@ -68,10 +76,7 @@ task:weekly-reading
 一个 Issue 代表本次任务的一次运行结果。
 标题使用“[任务名称] YYYY-MM-DD - 今日核心主题”。
 正文顶部使用 DailyNews README 约定的 YAML Frontmatter，正文保留完整 Markdown 结果。
-为 Issue 添加 task:<task-id> 标签。
 ```
-
-如果调用方暂时不能创建 Label，只写 Frontmatter 里的 `task` 也可以正常展示。
 
 ## 页面
 
@@ -110,10 +115,11 @@ npm run build
 Workflow 会：
 
 1. 拉取仓库全部 Issues。
-2. 解析 Frontmatter 和 Markdown。
-3. 生成 `public/issues.json`。
-4. 使用 Vite 构建静态站点。
-5. 部署到 GitHub Pages。
+2. 筛选符合发布边界的 Issue，并解析 Frontmatter 和 Markdown。
+3. 对异常字段做 warning 与兜底，跳过不合法的发布内容。
+4. 生成 `public/issues.json`。
+5. 使用 Vite 构建静态站点。
+6. 部署到 GitHub Pages。
 
 首次使用时，需要在仓库 **Settings → Pages** 中确认 Build and deployment 的 Source 使用 **GitHub Actions**。之后新增 Issue 就会自动刷新页面。
 
@@ -121,5 +127,6 @@ Workflow 会：
 
 - **Issue 是事实源**：Pages 坏了，历史数据仍然完整存在 GitHub。
 - **展示层可替换**：未来换前端框架不会影响数据。
-- **Agent 无关**：谁创建 Issue 不重要，只要遵循很薄的数据协议。
-- **先保证可运行**：没有 Frontmatter 也能展示，格式错误不应该让整个信息流失效。
+- **上游工具可替换**：调用方不重要，只要最终由可信发布身份写入符合协议的 Issue。
+- **坏数据不拖垮整站**：异常内容被跳过或字段回退，正常内容继续构建。
+- **只解决已经出现的问题**：在真实运行中发现边界，再按实际反馈增加能力，避免提前引入不必要的基础设施。
