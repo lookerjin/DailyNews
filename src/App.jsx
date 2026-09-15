@@ -218,64 +218,105 @@ function Home({ issues, initialTask = 'all' }) {
   )
 }
 
-function ChapterBar({ headings, activeId, onSelect }) {
-  const scrollerRef = useRef(null)
+function DesktopChapterNav({ headings, activeId, onSelect }) {
+  const navRef = useRef(null)
 
   useEffect(() => {
-    if (!activeId || !scrollerRef.current) return
-    const activeButton = scrollerRef.current.querySelector(`[data-chapter-id="${CSS.escape(activeId)}"]`)
-    if (!activeButton) return
-
-    const left = activeButton.offsetLeft - (scrollerRef.current.clientWidth / 2) + (activeButton.offsetWidth / 2)
-    scrollerRef.current.scrollTo({ left: Math.max(0, left), behavior: 'smooth' })
+    if (!activeId || !navRef.current) return
+    const activeButton = navRef.current.querySelector(`[data-chapter-id="${CSS.escape(activeId)}"]`)
+    activeButton?.scrollIntoView({ block: 'nearest' })
   }, [activeId])
 
   if (!headings.length) return null
 
   return (
-    <nav className="chapter-bar" aria-label="文章章节">
-      <span className="chapter-label">章节</span>
-      <div className="chapter-scroll" ref={scrollerRef}>
-        {headings.map((heading) => (
-          <button
-            key={heading.id}
-            type="button"
-            data-chapter-id={heading.id}
-            className={`${heading.level === 3 ? 'chapter-sub' : ''} ${activeId === heading.id ? 'active' : ''}`.trim()}
-            onClick={() => onSelect(heading.id)}
-          >
-            {heading.title}
-          </button>
-        ))}
+    <aside className="chapter-sidebar" aria-label="文章目录">
+      <div className="chapter-sidebar-inner">
+        <span className="chapter-sidebar-title">本文目录</span>
+        <nav className="chapter-list" ref={navRef}>
+          {headings.map((heading) => (
+            <button
+              key={heading.id}
+              type="button"
+              data-chapter-id={heading.id}
+              className={`${heading.level === 3 ? 'chapter-sub' : ''} ${activeId === heading.id ? 'active' : ''}`.trim()}
+              onClick={() => onSelect(heading.id)}
+            >
+              {heading.title}
+            </button>
+          ))}
+        </nav>
       </div>
-    </nav>
+    </aside>
+  )
+}
+
+function MobileChapterSelect({ headings, activeId, onSelect }) {
+  if (!headings.length) return null
+
+  return (
+    <div className="chapter-mobile">
+      <label htmlFor="chapter-select">章节</label>
+      <select
+        id="chapter-select"
+        value={activeId || headings[0].id}
+        onChange={(event) => onSelect(event.target.value)}
+        aria-label="选择文章章节"
+      >
+        {headings.map((heading) => (
+          <option key={heading.id} value={heading.id}>
+            {heading.level === 3 ? `↳ ${heading.title}` : heading.title}
+          </option>
+        ))}
+      </select>
+    </div>
+  )
+}
+
+function BackToStartButton({ visible, onClick }) {
+  return (
+    <button
+      type="button"
+      className={`back-to-start ${visible ? 'visible' : ''}`}
+      onClick={onClick}
+      aria-label="回到文章开始"
+      title="回到开始"
+    >
+      ↑
+    </button>
   )
 }
 
 function IssueDetail({ issue }) {
   const headings = useMemo(() => extractHeadings(issue?.body || ''), [issue?.body])
   const [activeChapter, setActiveChapter] = useState(headings[0]?.id || '')
+  const [showBackToStart, setShowBackToStart] = useState(false)
+  const articleStartRef = useRef(null)
 
   useEffect(() => {
     setActiveChapter(headings[0]?.id || '')
-    if (!headings.length) return undefined
+    setShowBackToStart(false)
+    if (!issue) return undefined
 
-    const updateActiveChapter = () => {
+    const updateScrollState = () => {
+      setShowBackToStart(window.scrollY > 520)
+
+      if (!headings.length) return
       let current = headings[0].id
       for (const heading of headings) {
         const element = document.getElementById(heading.id)
         if (!element) continue
-        if (element.getBoundingClientRect().top <= 150) current = heading.id
+        if (element.getBoundingClientRect().top <= 120) current = heading.id
         else break
       }
       setActiveChapter(current)
     }
 
-    const frame = requestAnimationFrame(updateActiveChapter)
-    window.addEventListener('scroll', updateActiveChapter, { passive: true })
+    const frame = requestAnimationFrame(updateScrollState)
+    window.addEventListener('scroll', updateScrollState, { passive: true })
     return () => {
       cancelAnimationFrame(frame)
-      window.removeEventListener('scroll', updateActiveChapter)
+      window.removeEventListener('scroll', updateScrollState)
     }
   }, [headings, issue?.number])
 
@@ -302,36 +343,48 @@ function IssueDetail({ issue }) {
     target.scrollIntoView({ behavior: 'smooth', block: 'start' })
   }
 
+  const scrollToStart = () => {
+    articleStartRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' })
+  }
+
   return (
     <main className="detail-page">
       <button className="back-link" onClick={() => navigate()}>← 返回时间线</button>
-      <article className="article">
-        <div className="article-meta">
-          <button className="task-link" onClick={() => navigate(`task/${encodeURIComponent(issue.task)}`)}>{issue.taskName}</button>
-          <span>{issue.date}</span>
-          <span>#{issue.number}</span>
-        </div>
-        <h1>{issue.title}</h1>
-        {issue.summary && <p className="article-summary">{issue.summary}</p>}
+      <article className="article" ref={articleStartRef}>
+        <div className="article-layout">
+          <div className="article-main">
+            <div className="article-meta">
+              <button className="task-link" onClick={() => navigate(`task/${encodeURIComponent(issue.task)}`)}>{issue.taskName}</button>
+              <span>{issue.date}</span>
+              <span>#{issue.number}</span>
+            </div>
+            <h1>{issue.title}</h1>
+            {issue.summary && <p className="article-summary">{issue.summary}</p>}
 
-        <ChapterBar headings={headings} activeId={activeChapter} onSelect={scrollToChapter} />
+            <MobileChapterSelect headings={headings} activeId={activeChapter} onSelect={scrollToChapter} />
 
-        <div className="markdown-body">
-          <ReactMarkdown
-            remarkPlugins={[remarkGfm]}
-            components={{
-              a: ({ children, ...props }) => <a {...props} target="_blank" rel="noreferrer">{children}</a>,
-              h2: renderHeading('h2'),
-              h3: renderHeading('h3'),
-            }}
-          >
-            {issue.body || '_这条 Issue 没有正文。_'}
-          </ReactMarkdown>
+            <div className="markdown-body">
+              <ReactMarkdown
+                remarkPlugins={[remarkGfm]}
+                components={{
+                  a: ({ children, ...props }) => <a {...props} target="_blank" rel="noreferrer">{children}</a>,
+                  h2: renderHeading('h2'),
+                  h3: renderHeading('h3'),
+                }}
+              >
+                {issue.body || '_这条 Issue 没有正文。_'}
+              </ReactMarkdown>
+            </div>
+            <footer className="article-footer">
+              <a href={issue.url} target="_blank" rel="noreferrer">在 GitHub 查看原始 Issue ↗</a>
+            </footer>
+          </div>
+
+          <DesktopChapterNav headings={headings} activeId={activeChapter} onSelect={scrollToChapter} />
         </div>
-        <footer className="article-footer">
-          <a href={issue.url} target="_blank" rel="noreferrer">在 GitHub 查看原始 Issue ↗</a>
-        </footer>
       </article>
+
+      <BackToStartButton visible={showBackToStart} onClick={scrollToStart} />
     </main>
   )
 }
