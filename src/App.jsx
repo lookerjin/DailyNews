@@ -18,16 +18,7 @@ function readRoute() {
 function navigate(path = '') { window.location.hash = path ? `/${path}` : '/' }
 
 function formatDate(date) {
-  return new Intl.DateTimeFormat('zh-CN', { timeZone: 'Asia/Shanghai', month: 'long', day: 'numeric', weekday: 'short' }).format(new Date(`${date}T12:00:00+08:00`))
-}
-
-function formatTime(value) {
-  return new Intl.DateTimeFormat('zh-CN', { timeZone: 'Asia/Shanghai', hour: '2-digit', minute: '2-digit', hour12: false }).format(new Date(value))
-}
-
-function relativeCount(items, task) {
-  const count = task === 'all' ? items.length : items.filter((item) => item.task === task).length
-  return `${count} ${count === 1 ? 'entry' : 'entries'}`
+  return new Intl.DateTimeFormat('zh-CN', { timeZone: 'Asia/Shanghai', year: 'numeric', month: 'long', day: 'numeric' }).format(new Date(`${date}T12:00:00+08:00`))
 }
 
 function cleanHeadingText(value = '') {
@@ -71,33 +62,49 @@ function EmptyState() {
   return <section className="empty-state"><span className="eyebrow">Ready for the first signal</span><h2>还没有日报，时间线正在等第一条 Issue。</h2><p>每次定时任务完成后创建一个 GitHub Issue。DailyNews 会在下一次构建时自动把它变成时间线中的一条记录。</p><a className="primary-link" href={`${ISSUES_URL}/new`} target="_blank" rel="noreferrer">创建第一条 Issue ↗</a></section>
 }
 
-function TimelineCard({ item }) {
-  return <article className="timeline-card" onClick={() => navigate(`issue/${item.number}`)}><div className="timeline-card-top"><button className="task-link" onClick={(event) => { event.stopPropagation(); navigate(`task/${encodeURIComponent(item.task)}`) }}>{item.taskName}</button><time>{formatTime(item.generatedAt || item.createdAt)}</time></div><h3>{item.title}</h3>{item.summary && <p>{item.summary}</p>}<div className="card-footer"><div className="tag-row">{item.category && <span>{item.category}</span>}{item.status && item.status !== 'success' && <span>{item.status}</span>}</div><span className="read-more">阅读全文 →</span></div></article>
-}
+function EditorialList({ items }) {
+  if (!items.length) return <EmptyState />
 
-function Timeline({ items }) {
-  const groups = useMemo(() => items.reduce((acc, item) => {
-    const date = item.date || item.createdAt.slice(0, 10)
-    if (!acc[date]) acc[date] = []
-    acc[date].push(item)
-    return acc
-  }, {}), [items])
-  const dates = Object.keys(groups).sort((a, b) => b.localeCompare(a))
-  if (!dates.length) return <EmptyState />
-  return <div className="timeline">{dates.map((date) => <section className="day-group" key={date}><div className="day-label"><strong>{formatDate(date)}</strong><span>{date}</span></div><div className="day-feed">{groups[date].map((item) => <TimelineCard item={item} key={item.number} />)}</div></section>)}</div>
+  return <div className="editorial-list">{items.map((item) => (
+    <article className="editorial-row" key={item.number} onClick={() => navigate(`issue/${item.number}`)}>
+      <div className="editorial-meta">
+        <button className="editorial-task" onClick={(event) => { event.stopPropagation(); navigate(`task/${encodeURIComponent(item.task)}`) }}>{item.taskName}</button>
+        <time>{formatDate(item.date || item.createdAt.slice(0, 10))}</time>
+      </div>
+      <div className="editorial-content">
+        <h3>{item.title}</h3>
+        {item.summary && <p>{item.summary}</p>}
+      </div>
+    </article>
+  ))}</div>
 }
 
 function Home({ issues, initialTask = 'all' }) {
   const [activeTask, setActiveTask] = useState(initialTask)
   useEffect(() => setActiveTask(initialTask), [initialTask])
+
   const tasks = useMemo(() => {
     const map = new Map()
     issues.forEach((item) => map.set(item.task, item.taskName))
     return [...map.entries()].map(([id, name]) => ({ id, name }))
   }, [issues])
+
   const filtered = activeTask === 'all' ? issues : issues.filter((item) => item.task === activeTask)
-  const currentName = activeTask === 'all' ? '全部信息' : tasks.find((item) => item.id === activeTask)?.name || activeTask
-  return <main><section className="hero"><h1>DailyNews</h1><p>一个把 ChatGPT 和 Agent 定时任务的输出自动归档为 GitHub Issues，并按时间线整理、阅读和长期保存的个人信息主页。</p></section><section className="feed-shell"><div className="feed-heading"><div><span className="eyebrow">Timeline</span><h2>{currentName}</h2></div><span className="entry-count">{relativeCount(issues, activeTask)}</span></div><div className="tabs" aria-label="任务筛选"><button className={activeTask === 'all' ? 'active' : ''} onClick={() => { setActiveTask('all'); if (initialTask !== 'all') navigate() }}>All</button>{tasks.map((task) => <button key={task.id} className={activeTask === task.id ? 'active' : ''} onClick={() => { setActiveTask(task.id); navigate(`task/${encodeURIComponent(task.id)}`) }}>{task.name}</button>)}</div><Timeline items={filtered} /></section></main>
+
+  return <main>
+    <section className="hero compact-hero">
+      <h1>DailyNews</h1>
+      <p>把 ChatGPT 和 Agent 定时任务的输出归档成 GitHub Issues，并整理成可长期阅读和检索的个人信息索引。</p>
+    </section>
+
+    <section className="feed-shell editorial-shell">
+      <div className="editorial-filter" aria-label="任务筛选">
+        <button className={activeTask === 'all' ? 'active' : ''} onClick={() => { setActiveTask('all'); if (initialTask !== 'all') navigate() }}>全部</button>
+        {tasks.map((task) => <button key={task.id} className={activeTask === task.id ? 'active' : ''} onClick={() => { setActiveTask(task.id); navigate(`task/${encodeURIComponent(task.id)}`) }}>{task.name}</button>)}
+      </div>
+      <EditorialList items={filtered} />
+    </section>
+  </main>
 }
 
 function DesktopChapterNav({ headings, activeId, visible, onSelect }) {
@@ -107,58 +114,52 @@ function DesktopChapterNav({ headings, activeId, visible, onSelect }) {
     navRef.current.querySelector(`[data-chapter-id="${CSS.escape(activeId)}"]`)?.scrollIntoView({ block: 'nearest' })
   }, [activeId])
   if (!headings.length) return null
-  return <aside className={`chapter-sidebar ${visible ? 'visible' : ''}`} aria-label="文章目录"><div className="chapter-sidebar-inner"><span className="chapter-sidebar-title">本文目录</span><nav className="chapter-list" ref={navRef}>{headings.map((heading) => <button key={heading.id} type="button" data-chapter-id={heading.id} className={`${heading.level === 3 ? 'chapter-sub' : ''} ${activeId === heading.id ? 'active' : ''}`.trim()} onClick={() => onSelect(heading.id)}>{heading.title}</button>)}</nav></div></aside>
+
+  return <aside className={`chapter-sidebar ${visible ? 'visible' : ''}`} aria-label="文章目录">
+    <div className="chapter-sidebar-inner">
+      <span className="chapter-sidebar-title">本文目录</span>
+      <nav className="chapter-list" ref={navRef}>{headings.map((heading) => <button key={heading.id} type="button" data-chapter-id={heading.id} className={`${heading.level === 3 ? 'chapter-sub' : ''} ${activeId === heading.id ? 'active' : ''}`.trim()} onClick={() => onSelect(heading.id)}>{heading.title}</button>)}</nav>
+    </div>
+  </aside>
 }
 
 function ChevronDownIcon() {
   return <svg viewBox="0 0 20 20" aria-hidden="true" focusable="false"><path d="M5.75 7.75 10 12l4.25-4.25" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" /></svg>
 }
 
-function CloseIcon() {
-  return <svg viewBox="0 0 20 20" aria-hidden="true" focusable="false"><path d="m6 6 8 8M14 6l-8 8" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" /></svg>
-}
-
 function MobileChapterMenu({ headings, activeId, onSelect }) {
   const [open, setOpen] = useState(false)
+  const menuRef = useRef(null)
   const activeHeading = headings.find((heading) => heading.id === activeId) || headings[0]
 
   useEffect(() => {
     if (!open) return undefined
-    const previousOverflow = document.body.style.overflow
-    document.body.style.overflow = 'hidden'
-    const closeOnEscape = (event) => { if (event.key === 'Escape') setOpen(false) }
+    const closeOnOutside = (event) => {
+      if (!menuRef.current?.contains(event.target)) setOpen(false)
+    }
+    const closeOnEscape = (event) => {
+      if (event.key === 'Escape') setOpen(false)
+    }
+    document.addEventListener('pointerdown', closeOnOutside)
     document.addEventListener('keydown', closeOnEscape)
     return () => {
-      document.body.style.overflow = previousOverflow
+      document.removeEventListener('pointerdown', closeOnOutside)
       document.removeEventListener('keydown', closeOnEscape)
     }
   }, [open])
 
   if (!headings.length) return null
 
-  const chooseChapter = (id) => {
-    setOpen(false)
-    window.setTimeout(() => onSelect(id), 140)
-  }
-
-  return <div className={`chapter-mobile ${open ? 'open' : ''}`}>
-    <button type="button" className="chapter-mobile-trigger" aria-expanded={open} aria-controls="chapter-mobile-sheet" onClick={() => setOpen(true)}>
-      <span className="chapter-mobile-kicker">章节</span>
+  return <div className={`chapter-mobile ${open ? 'open' : ''}`} ref={menuRef}>
+    <button type="button" className="chapter-mobile-trigger" aria-expanded={open} onClick={() => setOpen((value) => !value)}>
       <span className="chapter-mobile-current">{activeHeading?.title}</span>
       <span className="chapter-mobile-chevron"><ChevronDownIcon /></span>
     </button>
-
-    <div className="chapter-mobile-overlay" aria-hidden={!open} onPointerDown={() => setOpen(false)} />
-    <section className="chapter-mobile-sheet" id="chapter-mobile-sheet" aria-hidden={!open} aria-label="文章章节">
-      <div className="chapter-mobile-sheet-handle" aria-hidden="true" />
-      <div className="chapter-mobile-sheet-header">
-        <div><span className="chapter-mobile-sheet-kicker">本文目录</span><strong>跳转到章节</strong></div>
-        <button type="button" className="chapter-mobile-close" onClick={() => setOpen(false)} aria-label="关闭章节目录"><CloseIcon /></button>
-      </div>
+    <div className="chapter-mobile-panel" aria-hidden={!open}>
       <div className="chapter-mobile-list">
-        {headings.map((heading) => <button key={heading.id} type="button" className={`${heading.level === 3 ? 'chapter-sub' : ''} ${activeId === heading.id ? 'active' : ''}`.trim()} onClick={() => chooseChapter(heading.id)} tabIndex={open ? 0 : -1}>{heading.title}</button>)}
+        {headings.map((heading) => <button key={heading.id} type="button" className={`${heading.level === 3 ? 'chapter-sub' : ''} ${activeId === heading.id ? 'active' : ''}`.trim()} onClick={() => { setOpen(false); onSelect(heading.id) }} tabIndex={open ? 0 : -1}>{heading.title}</button>)}
       </div>
-    </section>
+    </div>
   </div>
 }
 
@@ -204,7 +205,7 @@ function IssueDetail({ issue }) {
       for (const heading of headings) {
         const element = document.getElementById(heading.id)
         if (!element) continue
-        if (element.getBoundingClientRect().top <= 120) current = heading.id
+        if (element.getBoundingClientRect().top <= 112) current = heading.id
         else break
       }
       setActiveChapter(current)
@@ -236,22 +237,40 @@ function IssueDetail({ issue }) {
     target.scrollIntoView({ behavior: 'smooth', block: 'start' })
   }
 
-  return <main className="detail-page"><button className="back-link" onClick={() => navigate()}>← 返回时间线</button><article className="article" ref={articleStartRef}><div className="article-main"><div className="article-meta"><button className="task-link" onClick={() => navigate(`task/${encodeURIComponent(issue.task)}`)}>{issue.taskName}</button><span>{issue.date}</span><span>#{issue.number}</span></div><h1>{issue.title}</h1>{issue.summary && <p className="article-summary">{issue.summary}</p>}<MobileChapterMenu headings={headings} activeId={activeChapter} onSelect={scrollToChapter} /><div className="markdown-body"><ReactMarkdown remarkPlugins={[remarkGfm]} components={{ a: ({ children, ...props }) => <a {...props} target="_blank" rel="noreferrer">{children}</a>, h2: renderHeading('h2'), h3: renderHeading('h3') }}>{issue.body || '_这条 Issue 没有正文。_'}</ReactMarkdown></div><footer className="article-footer"><a href={issue.url} target="_blank" rel="noreferrer">在 GitHub 查看原始 Issue ↗</a></footer></div></article><DesktopChapterNav headings={headings} activeId={activeChapter} visible={showChapterNav} onSelect={scrollToChapter} /><BackToStartButton visible={showBackToStart} onActivate={() => articleStartRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' })} /></main>
+  return <main className="detail-page">
+    <button className="back-link" onClick={() => navigate()}>← 返回时间线</button>
+    <article className="article" ref={articleStartRef}>
+      <div className="article-main">
+        <div className="article-meta"><button className="task-link" onClick={() => navigate(`task/${encodeURIComponent(issue.task)}`)}>{issue.taskName}</button><span>{issue.date}</span><span>#{issue.number}</span></div>
+        <h1>{issue.title}</h1>
+        {issue.summary && <p className="article-summary">{issue.summary}</p>}
+        <MobileChapterMenu headings={headings} activeId={activeChapter} onSelect={scrollToChapter} />
+        <div className="markdown-body"><ReactMarkdown remarkPlugins={[remarkGfm]} components={{ a: ({ children, ...props }) => <a {...props} target="_blank" rel="noreferrer">{children}</a>, h2: renderHeading('h2'), h3: renderHeading('h3') }}>{issue.body || '_这条 Issue 没有正文。_'}</ReactMarkdown></div>
+        <footer className="article-footer"><a href={issue.url} target="_blank" rel="noreferrer">在 GitHub 查看原始 Issue ↗</a></footer>
+      </div>
+    </article>
+    <DesktopChapterNav headings={headings} activeId={activeChapter} visible={showChapterNav} onSelect={scrollToChapter} />
+    <BackToStartButton visible={showBackToStart} onActivate={() => articleStartRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' })} />
+  </main>
 }
 
 function App() {
   const [issues, setIssues] = useState([])
   const [loading, setLoading] = useState(true)
   const [route, setRoute] = useState(readRoute())
+
   useEffect(() => {
     const onHashChange = () => setRoute(readRoute())
     window.addEventListener('hashchange', onHashChange)
     return () => window.removeEventListener('hashchange', onHashChange)
   }, [])
+
   useEffect(() => {
     fetch(`${import.meta.env.BASE_URL}issues.json`, { cache: 'no-store' }).then((response) => response.ok ? response.json() : []).then((data) => setIssues(Array.isArray(data) ? data : [])).catch(() => setIssues([])).finally(() => setLoading(false))
   }, [])
+
   if (loading) return <div className="loading-screen"><span className="brand-mark">D</span><p>Loading DailyNews…</p></div>
+
   return <><Header />{route.name === 'issue' ? <IssueDetail issue={issues.find((item) => item.number === route.id)} /> : <Home issues={issues} initialTask={route.name === 'task' ? route.id : 'all'} />}<footer className="site-footer"><span>DailyNews</span><span>Issues in. Signal out.</span></footer></>
 }
 
