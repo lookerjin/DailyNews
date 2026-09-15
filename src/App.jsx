@@ -18,7 +18,21 @@ function readRoute() {
 function navigate(path = '') { window.location.hash = path ? `/${path}` : '/' }
 
 function formatDate(date) {
-  return new Intl.DateTimeFormat('zh-CN', { timeZone: 'Asia/Shanghai', year: 'numeric', month: 'long', day: 'numeric' }).format(new Date(`${date}T12:00:00+08:00`))
+  return new Intl.DateTimeFormat('zh-CN', {
+    timeZone: 'Asia/Shanghai',
+    month: 'long',
+    day: 'numeric',
+    weekday: 'short',
+  }).format(new Date(`${date}T12:00:00+08:00`))
+}
+
+function formatTime(value) {
+  return new Intl.DateTimeFormat('zh-CN', {
+    timeZone: 'Asia/Shanghai',
+    hour: '2-digit',
+    minute: '2-digit',
+    hour12: false,
+  }).format(new Date(value))
 }
 
 function cleanHeadingText(value = '') {
@@ -62,21 +76,36 @@ function EmptyState() {
   return <section className="empty-state"><span className="eyebrow">Ready for the first signal</span><h2>还没有日报，时间线正在等第一条 Issue。</h2><p>每次定时任务完成后创建一个 GitHub Issue。DailyNews 会在下一次构建时自动把它变成时间线中的一条记录。</p><a className="primary-link" href={`${ISSUES_URL}/new`} target="_blank" rel="noreferrer">创建第一条 Issue ↗</a></section>
 }
 
-function EditorialList({ items }) {
-  if (!items.length) return <EmptyState />
+function TimelineCard({ item }) {
+  return <article className="timeline-card" onClick={() => navigate(`issue/${item.number}`)}>
+    <div className="timeline-card-top">
+      <button className="task-link" onClick={(event) => { event.stopPropagation(); navigate(`task/${encodeURIComponent(item.task)}`) }}>{item.taskName}</button>
+      <time>{formatTime(item.generatedAt || item.createdAt)}</time>
+    </div>
+    <h3>{item.title}</h3>
+    {item.summary && <p>{item.summary}</p>}
+    <div className="card-footer">
+      <div className="tag-row">{item.category && <span>{item.category}</span>}{item.status && item.status !== 'success' && <span>{item.status}</span>}</div>
+      <span className="read-more">阅读全文 →</span>
+    </div>
+  </article>
+}
 
-  return <div className="editorial-list">{items.map((item) => (
-    <article className="editorial-row" key={item.number} onClick={() => navigate(`issue/${item.number}`)}>
-      <div className="editorial-meta">
-        <button className="editorial-task" onClick={(event) => { event.stopPropagation(); navigate(`task/${encodeURIComponent(item.task)}`) }}>{item.taskName}</button>
-        <time>{formatDate(item.date || item.createdAt.slice(0, 10))}</time>
-      </div>
-      <div className="editorial-content">
-        <h3>{item.title}</h3>
-        {item.summary && <p>{item.summary}</p>}
-      </div>
-    </article>
-  ))}</div>
+function Timeline({ items }) {
+  const groups = useMemo(() => items.reduce((acc, item) => {
+    const date = item.date || item.createdAt.slice(0, 10)
+    if (!acc[date]) acc[date] = []
+    acc[date].push(item)
+    return acc
+  }, {}), [items])
+
+  const dates = Object.keys(groups).sort((a, b) => b.localeCompare(a))
+  if (!dates.length) return <EmptyState />
+
+  return <div className="timeline">{dates.map((date) => <section className="day-group" key={date}>
+    <div className="day-label"><strong>{formatDate(date)}</strong><span>{date}</span></div>
+    <div className="day-feed">{groups[date].map((item) => <TimelineCard item={item} key={item.number} />)}</div>
+  </section>)}</div>
 }
 
 function Home({ issues, initialTask = 'all' }) {
@@ -86,23 +115,46 @@ function Home({ issues, initialTask = 'all' }) {
   const tasks = useMemo(() => {
     const map = new Map()
     issues.forEach((item) => map.set(item.task, item.taskName))
-    return [...map.entries()].map(([id, name]) => ({ id, name }))
+    return [...map.entries()].map(([id, name]) => ({
+      id,
+      name,
+      count: issues.filter((issue) => issue.task === id).length,
+    }))
   }, [issues])
 
   const filtered = activeTask === 'all' ? issues : issues.filter((item) => item.task === activeTask)
+  const currentName = activeTask === 'all' ? '全部信息' : tasks.find((task) => task.id === activeTask)?.name || activeTask
+
+  const chooseTask = (task) => {
+    setActiveTask(task)
+    if (task === 'all') navigate()
+    else navigate(`task/${encodeURIComponent(task)}`)
+  }
 
   return <main>
     <section className="hero compact-hero">
       <h1>DailyNews</h1>
-      <p>把 ChatGPT 和 Agent 定时任务的输出归档成 GitHub Issues，并整理成可长期阅读和检索的个人信息索引。</p>
+      <p>把 ChatGPT 和 Agent 定时任务的输出归档成 GitHub Issues，并整理成可长期阅读和检索的个人信息主页。</p>
     </section>
 
-    <section className="feed-shell editorial-shell">
-      <div className="editorial-filter" aria-label="任务筛选">
-        <button className={activeTask === 'all' ? 'active' : ''} onClick={() => { setActiveTask('all'); if (initialTask !== 'all') navigate() }}>全部</button>
-        {tasks.map((task) => <button key={task.id} className={activeTask === task.id ? 'active' : ''} onClick={() => { setActiveTask(task.id); navigate(`task/${encodeURIComponent(task.id)}`) }}>{task.name}</button>)}
+    <section className="feed-shell home-card-shell">
+      <div className="home-feed-layout">
+        <aside className="category-sidebar" aria-label="分类">
+          <span className="category-title">分类</span>
+          <nav className="category-list">
+            <button className={activeTask === 'all' ? 'active' : ''} onClick={() => chooseTask('all')}><span>全部</span><small>{issues.length}</small></button>
+            {tasks.map((task) => <button key={task.id} className={activeTask === task.id ? 'active' : ''} onClick={() => chooseTask(task.id)}><span>{task.name}</span><small>{task.count}</small></button>)}
+          </nav>
+        </aside>
+
+        <div className="home-feed-main">
+          <div className="feed-heading home-feed-heading">
+            <div><span className="eyebrow">Timeline</span><h2>{currentName}</h2></div>
+            <span className="entry-count">{filtered.length} {filtered.length === 1 ? 'entry' : 'entries'}</span>
+          </div>
+          <Timeline items={filtered} />
+        </div>
       </div>
-      <EditorialList items={filtered} />
     </section>
   </main>
 }
@@ -115,12 +167,7 @@ function DesktopChapterNav({ headings, activeId, visible, onSelect }) {
   }, [activeId])
   if (!headings.length) return null
 
-  return <aside className={`chapter-sidebar ${visible ? 'visible' : ''}`} aria-label="文章目录">
-    <div className="chapter-sidebar-inner">
-      <span className="chapter-sidebar-title">本文目录</span>
-      <nav className="chapter-list" ref={navRef}>{headings.map((heading) => <button key={heading.id} type="button" data-chapter-id={heading.id} className={`${heading.level === 3 ? 'chapter-sub' : ''} ${activeId === heading.id ? 'active' : ''}`.trim()} onClick={() => onSelect(heading.id)}>{heading.title}</button>)}</nav>
-    </div>
-  </aside>
+  return <aside className={`chapter-sidebar ${visible ? 'visible' : ''}`} aria-label="文章目录"><div className="chapter-sidebar-inner"><span className="chapter-sidebar-title">本文目录</span><nav className="chapter-list" ref={navRef}>{headings.map((heading) => <button key={heading.id} type="button" data-chapter-id={heading.id} className={`${heading.level === 3 ? 'chapter-sub' : ''} ${activeId === heading.id ? 'active' : ''}`.trim()} onClick={() => onSelect(heading.id)}>{heading.title}</button>)}</nav></div></aside>
 }
 
 function ChevronDownIcon() {
